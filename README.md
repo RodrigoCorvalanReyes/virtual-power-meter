@@ -1,3 +1,5 @@
+FEO PERO FUNCIONAL xD
+
 # 🔌 Virtual Power Meter - Simulador Modbus
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
