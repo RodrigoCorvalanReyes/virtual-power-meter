@@ -1,0 +1,14 @@
+# Configuración para flake8
+[flake8]
+max-line-length = 100
+ignore = 
+    E501,  # line too long - se puede manejar con reformateo
+    F401,  # imported but unused - algunos imports son para compatibilidad futura
+    W503   # line break before binary operator - conflicto con Black
+exclude = 
+    .git,
+    __pycache__,
+    build,
+    dist,
+    venv,
+    env

@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Virtual Power Meter{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-tachometer-alt text-primary"></i>
+            Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div id="server-status-icon" class="mb-2">
+                    <i class="fas fa-server fa-2x text-secondary"></i>
+                </div>
+                <h5 class="card-title">Estado del Servidor</h5>
+                <p id="server-status" class="card-text text-muted">Detenido</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <i class="fas fa-microchip fa-2x text-info"></i>
+                </div>
+                <h5 class="card-title">Dispositivos</h5>
+                <p id="devices-count" class="card-text">{{ config.devices }}</p>
+                <small id="devices-detail" class="text-muted">configurados</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <i class="fas fa-network-wired fa-2x text-warning"></i>
+                </div>
+                <h5 class="card-title">Protocolo</h5>
+                <p class="card-text">{{ config.protocol.upper() }}</p>
+                <small class="text-muted">
+                    {% if config.protocol == 'tcp' %}
+                        {{ config.host }}:{{ config.port }}
+                    {% else %}
+                        {{ config.port_serial }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <i class="fas fa-clock fa-2x text-success"></i>
+                </div>
+                <h5 class="card-title">Intervalo</h5>
+                <p class="card-text">{{ config.update_interval }}s</p>
+                <small class="text-muted">actualización</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Devices Status Cards - Solo si hay dispositivos activos -->
+<div id="devices-status-section" class="row mb-4 d-none">
+    <div class="col-12">
+        <h4 class="mb-3">
+            <i class="fas fa-microchip text-primary"></i>
+            Estado de Dispositivos
+        </h4>
+    </div>
+    
+    <!-- Device 1 Status -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-microchip text-primary me-2"></i>
+                    <span id="device1-title">Dispositivo 1</span>
+                    <span id="device1-unit-id" class="badge bg-primary ms-2">Unit ID: {{ config.unit_id }}</span>
+                </h6>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 text-primary mb-1" id="device1-registers-count">-</div>
+                            <small class="text-muted">Registros</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 text-success mb-1" id="device1-last-update">-</div>
+                            <small class="text-muted">Última Act.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sample values -->
+                <div class="mt-3">
+                    <h6 class="text-muted small">Valores Actuales:</h6>
+                    <div class="row small">
+                        <div class="col-4">
+                            <strong id="device1-current">-</strong><br>
+                            <span class="text-muted">Corriente A</span>
+                        </div>
+                        <div class="col-4">
+                            <strong id="device1-voltage">-</strong><br>
+                            <span class="text-muted">Voltaje A-N</span>
+                        </div>
+                        <div class="col-4">
+                            <strong id="device1-power">-</strong><br>
+                            <span class="text-muted">Potencia</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Device 2 Status - Solo si hay 2 dispositivos -->
+    <div class="col-md-6" id="device2-card" style="display: none;">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-microchip text-info me-2"></i>
+                    <span id="device2-title">Dispositivo 2</span>
+                    <span id="device2-unit-id" class="badge bg-info ms-2">Unit ID: {{ config.unit_id + 1 }}</span>
+                </h6>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 text-primary mb-1" id="device2-registers-count">-</div>
+                            <small class="text-muted">Registros</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h4 text-success mb-1" id="device2-last-update">-</div>
+                            <small class="text-muted">Última Act.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sample values -->
+                <div class="mt-3">
+                    <h6 class="text-muted small">Valores Actuales:</h6>
+                    <div class="row small">
+                        <div class="col-4">
+                            <strong id="device2-current">-</strong><br>
+                            <span class="text-muted">Corriente A</span>
+                        </div>
+                        <div class="col-4">
+                            <strong id="device2-voltage">-</strong><br>
+                            <span class="text-muted">Voltaje A-N</span>
+                        </div>
+                        <div class="col-4">
+                            <strong id="device2-power">-</strong><br>
+                            <span class="text-muted">Potencia</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-play-circle text-success"></i>
+                    Panel de Control
+                </h5>
+                
+                <div class="d-flex gap-2 mb-3">
+                    <button id="start-btn" class="btn btn-success" onclick="startSimulator()">
+                        <i class="fas fa-play me-1"></i>Iniciar Simulador
+                    </button>
+                    <button id="stop-btn" class="btn btn-danger" onclick="stopSimulator()" disabled>
+                        <i class="fas fa-stop me-1"></i>Detener Simulador
+                    </button>
+                    <button class="btn btn-info" onclick="refreshStatus()">
+                        <i class="fas fa-sync-alt me-1"></i>Actualizar Estado
+                    </button>
+                </div>
+                
+                <div id="control-message" class="alert d-none" role="alert"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Summary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-info"></i>
+                    Configuración Actual
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>Protocolo:</strong></td>
+                                <td>
+                                    <span class="badge bg-primary">{{ config.protocol.upper() }}</span>
+                                </td>
+                            </tr>
+                            {% if config.protocol == 'tcp' %}
+                            <tr>
+                                <td><strong>Host:</strong></td>
+                                <td><code>{{ config.host }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Puerto TCP:</strong></td>
+                                <td><code>{{ config.port }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Unit ID Base:</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ config.unit_id }}</span>
+                                    {% if config.devices == 2 %}
+                                    <span class="badge bg-info ms-1">{{ config.unit_id + 1 }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td><strong>Puerto Serial:</strong></td>
+                                <td><code>{{ config.port_serial }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Baudrate:</strong></td>
+                                <td><code>{{ config.baudrate }}</code> bps</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Slave ID Base:</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ config.slave_id }}</span>
+                                    {% if config.devices == 2 %}
+                                    <span class="badge bg-info ms-1">{{ config.slave_id + 1 }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>Dispositivos:</strong></td>
+                                <td>
+                                    <span class="badge bg-success">{{ config.devices }}</span>
+                                    <span class="text-muted small">{{ 'dispositivo' if config.devices == 1 else 'dispositivos' }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Intervalo:</strong></td>
+                                <td><code>{{ config.update_interval }}</code> segundos</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Modo Verbose:</strong></td>
+                                <td>
+                                    {% if config.verbose %}
+                                        <span class="badge bg-success">Activado</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Desactivado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Última actualización:</strong></td>
+                                <td><span id="last-update" class="text-muted small">-</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Connection Details -->
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6 class="text-muted mb-2">
+                        <i class="fas fa-plug"></i>
+                        Detalles de Conexión
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            {% if config.protocol == 'tcp' %}
+                            <small class="text-muted">
+                                <strong>Endpoint TCP:</strong> 
+                                <code>{{ config.host }}:{{ config.port }}</code>
+                            </small><br>
+                            <small class="text-muted">
+                                <strong>Dispositivo{{ 's' if config.devices > 1 else '' }}:</strong>
+                                Unit ID {{ config.unit_id }}{% if config.devices == 2 %}, {{ config.unit_id + 1 }}{% endif %}
+                            </small>
+                            {% else %}
+                            <small class="text-muted">
+                                <strong>Puerto Serial:</strong> 
+                                <code>{{ config.port_serial }}</code> @ {{ config.baudrate }} bps
+                            </small><br>
+                            <small class="text-muted">
+                                <strong>Dispositivo{{ 's' if config.devices > 1 else '' }}:</strong>
+                                Slave ID {{ config.slave_id }}{% if config.devices == 2 %}, {{ config.slave_id + 1 }}{% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Archivos de Registros:</strong><br>
+                                {% if config.devices == 1 %}
+                                • register_table_PM21XX.json
+                                {% else %}
+                                • register_table_PM21XX.json (Dispositivo 1)<br>
+                                • register_table_generic.json (Dispositivo 2)
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-end mt-3">
+                    <a href="/config" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-edit me-1"></i>Modificar Configuración
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                <h5>Monitoreo en Tiempo Real</h5>
+                <p class="text-muted">Ver valores actuales de todos los registros</p>
+                <a href="/monitor" class="btn btn-primary">
+                    <i class="fas fa-eye me-1"></i>Ver Monitoreo
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-database fa-3x text-warning mb-3"></i>
+                <h5>Gestión de Registros</h5>
+                <p class="text-muted">Editar configuraciones de registros Modbus</p>
+                <a href="/registers" class="btn btn-warning">
+                    <i class="fas fa-edit me-1"></i>Editar Registros
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-terminal fa-3x text-success mb-3"></i>
+                <h5>CLI Original</h5>
+                <p class="text-muted">Usar la interfaz de línea de comandos</p>
+                <button class="btn btn-success" onclick="showCLICommands()">
+                    <i class="fas fa-code me-1"></i>Ver Comandos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CLI Commands Modal -->
+<div class="modal fade" id="cliModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-terminal"></i>
+                    Comandos CLI Equivalentes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Configuración actual como comando CLI:</h6>
+                <div class="bg-dark text-light p-3 rounded">
+                    <code id="cli-command">python virtual_pm_CLI_refactored.py --protocol {{ config.protocol }} --host {{ config.host }} --port {{ config.port }} --devices {{ config.devices }} --update-interval {{ config.update_interval }} --unit-id {{ config.unit_id }}{% if config.verbose %} --verbose{% endif %}</code>
+                </div>
+                
+                <h6 class="mt-3">Otros comandos útiles:</h6>
+                <div class="bg-light p-3 rounded">
+                    <p class="mb-1"><code>python virtual_pm_CLI_refactored.py --help</code> - Ver ayuda completa</p>
+                    <p class="mb-1"><code>python virtual_pm_CLI_refactored.py --devices 2 --verbose</code> - Dos dispositivos con verbose</p>
+                    <p class="mb-0"><code>python virtual_pm_CLI_refactored.py --protocol rtu --port-serial COM3</code> - Usar RTU</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Actualizar estado automáticamente
+setInterval(refreshStatus, 5000);
+
+// Cargar estado inicial
+document.addEventListener('DOMContentLoaded', function() {
+    refreshStatus();
+});
+
+function refreshStatus() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(data => {
+            updateStatusDisplay(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+function updateStatusDisplay(data) {
+    const serverStatus = document.getElementById('server-status');
+    const serverStatusIcon = document.getElementById('server-status-icon');
+    const devicesCount = document.getElementById('devices-count');
+    const devicesDetail = document.getElementById('devices-detail');
+    const lastUpdate = document.getElementById('last-update');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const statusIndicator = document.getElementById('status-indicator');
+    const devicesStatusSection = document.getElementById('devices-status-section');
+    const device2Card = document.getElementById('device2-card');
+    
+    if (data.is_running) {
+        serverStatus.textContent = 'Ejecutándose';
+        serverStatusIcon.innerHTML = '<i class="fas fa-server fa-2x text-success"></i>';
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusIndicator.innerHTML = '<span class="badge bg-success"><i class="fas fa-circle me-1"></i>Conectado</span>';
+        
+        // Mostrar sección de dispositivos si hay dispositivos activos
+        if (data.devices_count > 0) {
+            devicesStatusSection.classList.remove('d-none');
+            
+            // Mostrar card del segundo dispositivo si hay 2 dispositivos
+            if (data.devices_count >= 2) {
+                device2Card.style.display = 'block';
+            } else {
+                device2Card.style.display = 'none';
+            }
+            
+            // Actualizar datos de dispositivos si están disponibles
+            updateDevicesData();
+        } else {
+            devicesStatusSection.classList.add('d-none');
+        }
+    } else {
+        serverStatus.textContent = 'Detenido';
+        serverStatusIcon.innerHTML = '<i class="fas fa-server fa-2x text-secondary"></i>';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        statusIndicator.innerHTML = '<span class="badge bg-secondary"><i class="fas fa-circle me-1"></i>Desconectado</span>';
+        devicesStatusSection.classList.add('d-none');
+    }
+    
+    devicesCount.textContent = data.devices_count || '0';
+    if (data.devices_count > 0) {
+        devicesDetail.textContent = data.devices_count === 1 ? 'activo' : 'activos';
+    } else {
+        devicesDetail.textContent = 'configurados';
+    }
+    
+    lastUpdate.textContent = new Date(data.last_update).toLocaleString();
+}
+
+function updateDevicesData() {
+    // Obtener datos actuales de los dispositivos
+    fetch('/api/data')
+        .then(response => response.json())
+        .then(apiData => {
+            if (apiData.is_running && apiData.data) {
+                const devices = Object.keys(apiData.data);
+                
+                // Actualizar dispositivo 1
+                if (devices.length > 0) {
+                    const device1Data = apiData.data[devices[0]];
+                    updateDeviceCard(1, device1Data);
+                }
+                
+                // Actualizar dispositivo 2 si existe
+                if (devices.length > 1) {
+                    const device2Data = apiData.data[devices[1]];
+                    updateDeviceCard(2, device2Data);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching device data:', error);
+        });
+}
+
+function updateDeviceCard(deviceNum, deviceData) {
+    const registersCount = Object.keys(deviceData).length;
+    const now = new Date().toLocaleTimeString();
+    
+    // Actualizar contadores
+    document.getElementById(`device${deviceNum}-registers-count`).textContent = registersCount;
+    document.getElementById(`device${deviceNum}-last-update`).textContent = now;
+    
+    // Encontrar valores específicos
+    let currentA = '-', voltageAN = '-', power = '-';
+    
+    for (const [key, register] of Object.entries(deviceData)) {
+        if (register.description && register.description.includes('Current A')) {
+            currentA = formatValue(register.value) + (register.unit ? ' ' + register.unit : '');
+        } else if (register.description && register.description.includes('Voltage A-N')) {
+            voltageAN = formatValue(register.value) + (register.unit ? ' ' + register.unit : '');
+        } else if (register.description && (register.description.includes('Total Power') || register.description.includes('Power'))) {
+            power = formatValue(register.value) + (register.unit ? ' ' + register.unit : '');
+        }
+    }
+    
+    // Actualizar valores mostrados
+    document.getElementById(`device${deviceNum}-current`).textContent = currentA;
+    document.getElementById(`device${deviceNum}-voltage`).textContent = voltageAN;
+    document.getElementById(`device${deviceNum}-power`).textContent = power;
+}
+
+function formatValue(value) {
+    if (typeof value === 'number') {
+        return value.toFixed(2);
+    }
+    return value.toString();
+}
+
+function startSimulator() {
+    const messageEl = document.getElementById('control-message');
+    messageEl.className = 'alert d-none';
+    
+    fetch('/api/start', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                messageEl.textContent = data.message;
+                messageEl.className = 'alert alert-success';
+                setTimeout(refreshStatus, 1000);
+            } else {
+                messageEl.textContent = data.message;
+                messageEl.className = 'alert alert-danger';
+            }
+        })
+        .catch(error => {
+            messageEl.textContent = 'Error de conexión: ' + error.message;
+            messageEl.className = 'alert alert-danger';
+        });
+}
+
+function stopSimulator() {
+    const messageEl = document.getElementById('control-message');
+    messageEl.className = 'alert d-none';
+    
+    fetch('/api/stop', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                messageEl.textContent = data.message;
+                messageEl.className = 'alert alert-success';
+                setTimeout(refreshStatus, 1000);
+            } else {
+                messageEl.textContent = data.message;
+                messageEl.className = 'alert alert-danger';
+            }
+        })
+        .catch(error => {
+            messageEl.textContent = 'Error de conexión: ' + error.message;
+            messageEl.className = 'alert alert-danger';
+        });
+}
+
+function showCLICommands() {
+    const modal = new bootstrap.Modal(document.getElementById('cliModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

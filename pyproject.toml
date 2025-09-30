@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virtual-power-meter"
+version = "5.0.0"
+description = "Simulador de medidores de potencia virtuales con protocolo Modbus TCP/RTU"
+authors = [
+    {name = "Virtual PM Team", email = "dev@example.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: System :: Hardware",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pymodbus>=3.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/example/virtual-power-meter"
+Repository = "https://github.com/example/virtual-power-meter.git"
+Issues = "https://github.com/example/virtual-power-meter/issues"
+
+[project.scripts]
+virtual-pm = "virtual_pm_CLI_refactored:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.flake8]
+max-line-length = 100
+exclude = [".git", "__pycache__", "build", "dist"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=src --cov-report=html --cov-report=term-missing"

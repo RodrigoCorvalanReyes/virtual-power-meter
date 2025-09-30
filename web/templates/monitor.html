@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoreo - Virtual Power Meter{% endblock %}
+
+{% block extra_head %}
+<style>
+.register-card {
+    transition: all 0.3s ease;
+}
+
+.register-value {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.register-updated {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.offline-indicator {
+    opacity: 0.6;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-chart-line text-primary"></i>
+            Monitoreo en Tiempo Real
+        </h1>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6 class="mb-0">
+                            <span id="connection-status">
+                                <i class="fas fa-circle text-secondary"></i>
+                                Conectando...
+                            </span>
+                        </h6>
+                        <small class="text-muted" id="last-update">Última actualización: -</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-primary btn-sm" onclick="toggleAutoRefresh()">
+                            <i id="refresh-icon" class="fas fa-pause"></i>
+                            <span id="refresh-text">Pausar</span>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not is_running %}
+<!-- Not Running Warning -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Simulador no está ejecutándose.</strong>
+            <a href="/" class="alert-link">Ir al Dashboard</a> para iniciarlo.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Device Tabs -->
+<div class="row mb-4">
+    <div class="col-12">
+        <ul class="nav nav-tabs" id="deviceTabs" role="tablist">
+            <!-- Tabs will be populated by JavaScript -->
+        </ul>
+    </div>
+</div>
+
+<!-- Device Content -->
+<div class="tab-content" id="deviceTabsContent">
+    <!-- Content will be populated by JavaScript -->
+</div>
+
+<!-- Charts Section -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-bolt text-warning"></i>
+                    Corrientes AC
+                </h6>
+                <div class="chart-container">
+                    <canvas id="currentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-plug text-info"></i>
+                    Voltajes
+                </h6>
+                <div class="chart-container">
+                    <canvas id="voltageChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-tachometer-alt text-success"></i>
+                    Potencias
+                </h6>
+                <div class="chart-container">
+                    <canvas id="powerChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-wave-square text-danger"></i>
+                    Frecuencia
+                </h6>
+                <div class="chart-container">
+                    <canvas id="frequencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let websocket = null;
+let isAutoRefresh = true;
+let deviceData = {};
+let charts = {};
+
+// Chart.js configuration
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {
+        duration: 300
+    },
+    scales: {
+        x: {
+            type: 'linear',
+            position: 'bottom'
+        },
+        y: {
+            beginAtZero: false
+        }
+    },
+    plugins: {
+        legend: {
+            display: true,
+            position: 'top'
+        }
+    }
+};
+
+// Initialize charts
+function initializeCharts() {
+    const ctx1 = document.getElementById('currentChart').getContext('2d');
+    charts.current = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Corriente A',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Corriente B',
+                    data: [],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Corriente C',
+                    data: [],
+                    borderColor: 'rgb(255, 205, 86)',
+                    backgroundColor: 'rgba(255, 205, 86, 0.1)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: chartOptions
+    });
+
+    const ctx2 = document.getElementById('voltageChart').getContext('2d');
+    charts.voltage = new Chart(ctx2, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Voltage A-N',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Voltage B-N',
+                    data: [],
+                    borderColor: 'rgb(153, 102, 255)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Voltage C-N',
+                    data: [],
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: chartOptions
+    });
+
+    const ctx3 = document.getElementById('powerChart').getContext('2d');
+    charts.power = new Chart(ctx3, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Potencia Total',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: chartOptions
+    });
+
+    const ctx4 = document.getElementById('frequencyChart').getContext('2d');
+    charts.frequency = new Chart(ctx4, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Frecuencia (Hz)',
+                    data: [],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: chartOptions
+    });
+}
+
+// WebSocket connection
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    websocket = new WebSocket(wsUrl);
+    
+    websocket.onopen = function(event) {
+        updateConnectionStatus(true);
+        console.log('WebSocket connected');
+    };
+    
+    websocket.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        if (message.type === 'data_update') {
+            updateData(message.data, message.timestamp);
+        }
+    };
+    
+    websocket.onclose = function(event) {
+        updateConnectionStatus(false);
+        console.log('WebSocket disconnected');
+        
+        // Reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000);
+    };
+    
+    websocket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus(false);
+    };
+}
+
+function updateConnectionStatus(connected) {
+    const statusEl = document.getElementById('connection-status');
+    
+    if (connected) {
+        statusEl.innerHTML = '<i class="fas fa-circle text-success"></i> Conectado';
+    } else {
+        statusEl.innerHTML = '<i class="fas fa-circle text-danger"></i> Desconectado';
+    }
+}
+
+function updateData(data, timestamp) {
+    deviceData = data;
+    updateDeviceTabs();
+    updateLastUpdate(timestamp);
+    updateCharts(data, timestamp);
+}
+
+function updateDeviceTabs() {
+    const tabsContainer = document.getElementById('deviceTabs');
+    const contentContainer = document.getElementById('deviceTabsContent');
+    
+    // Clear existing tabs and content
+    tabsContainer.innerHTML = '';
+    contentContainer.innerHTML = '';
+    
+    let isFirst = true;
+    
+    for (const [deviceKey, device] of Object.entries(deviceData)) {
+        const deviceId = deviceKey.replace('device_', '');
+        
+        // Create tab
+        const tabItem = document.createElement('li');
+        tabItem.className = 'nav-item';
+        tabItem.innerHTML = `
+            <button class="nav-link ${isFirst ? 'active' : ''}" 
+                    id="${deviceKey}-tab" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#${deviceKey}" 
+                    type="button">
+                <i class="fas fa-microchip me-1"></i>
+                Dispositivo ${deviceId}
+            </button>
+        `;
+        tabsContainer.appendChild(tabItem);
+        
+        // Create content
+        const tabContent = document.createElement('div');
+        tabContent.className = `tab-pane fade ${isFirst ? 'show active' : ''}`;
+        tabContent.id = deviceKey;
+        
+        let registersHtml = '<div class="row">';
+        let colCount = 0;
+        
+        for (const [regKey, register] of Object.entries(device)) {
+            if (colCount > 0 && colCount % 3 === 0) {
+                registersHtml += '</div><div class="row">';
+            }
+            
+            registersHtml += `
+                <div class="col-md-4 mb-3">
+                    <div class="card register-card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="card-title text-truncate" title="${register.description}">
+                                ${register.description}
+                            </h6>
+                            <div class="register-value text-primary">
+                                ${formatValue(register.value, register.data_type)}
+                                <small class="text-muted">${register.unit || ''}</small>
+                            </div>
+                            <small class="text-muted">
+                                Addr: ${register.address} | ${register.data_type}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            colCount++;
+        }
+        
+        registersHtml += '</div>';
+        tabContent.innerHTML = registersHtml;
+        contentContainer.appendChild(tabContent);
+        
+        isFirst = false;
+    }
+}
+
+function formatValue(value, dataType) {
+    if (Array.isArray(value)) {
+        return value.join(', ');
+    }
+    
+    if (typeof value === 'number') {
+        if (dataType === 'FLOAT32') {
+            return value.toFixed(2);
+        } else {
+            return value.toString();
+        }
+    }
+    
+    return value.toString();
+}
+
+function updateLastUpdate(timestamp) {
+    const lastUpdateEl = document.getElementById('last-update');
+    const date = new Date(timestamp);
+    lastUpdateEl.textContent = `Última actualización: ${date.toLocaleTimeString()}`;
+}
+
+function updateCharts(data, timestamp) {
+    const now = Date.now();
+    
+    // Extract values for charts from first device
+    const firstDevice = Object.values(data)[0];
+    if (!firstDevice) return;
+    
+    // Current chart
+    const currentA = findRegisterValue(firstDevice, 'Current A') || 0;
+    const currentB = findRegisterValue(firstDevice, 'Current B') || 0;
+    const currentC = findRegisterValue(firstDevice, 'Current C') || 0;
+    
+    // Keep only last 20 points
+    const maxPoints = 20;
+    
+    if (charts.current.data.datasets[0].data.length >= maxPoints) {
+        charts.current.data.datasets[0].data.shift();
+        charts.current.data.datasets[1].data.shift();
+        charts.current.data.datasets[2].data.shift();
+    }
+    
+    charts.current.data.datasets[0].data.push({x: now, y: currentA});
+    charts.current.data.datasets[1].data.push({x: now, y: currentB});
+    charts.current.data.datasets[2].data.push({x: now, y: currentC});
+    charts.current.update('none');
+    
+    // Voltage chart
+    const voltageAN = findRegisterValue(firstDevice, 'Voltage A-N') || 0;
+    const voltageBN = findRegisterValue(firstDevice, 'Voltage B-N') || 0;
+    const voltageCN = findRegisterValue(firstDevice, 'Voltage C-N') || 0;
+    
+    if (charts.voltage.data.datasets[0].data.length >= maxPoints) {
+        charts.voltage.data.datasets[0].data.shift();
+        charts.voltage.data.datasets[1].data.shift();
+        charts.voltage.data.datasets[2].data.shift();
+    }
+    
+    charts.voltage.data.datasets[0].data.push({x: now, y: voltageAN});
+    charts.voltage.data.datasets[1].data.push({x: now, y: voltageBN});
+    charts.voltage.data.datasets[2].data.push({x: now, y: voltageCN});
+    charts.voltage.update('none');
+    
+    // Power chart
+    const totalPower = findRegisterValue(firstDevice, 'Total Power') || findRegisterValue(firstDevice, 'Power') || 0;
+    
+    if (charts.power.data.datasets[0].data.length >= maxPoints) {
+        charts.power.data.datasets[0].data.shift();
+    }
+    
+    charts.power.data.datasets[0].data.push({x: now, y: totalPower});
+    charts.power.update('none');
+    
+    // Frequency chart
+    const frequency = findRegisterValue(firstDevice, 'Frequency') || 50;
+    
+    if (charts.frequency.data.datasets[0].data.length >= maxPoints) {
+        charts.frequency.data.datasets[0].data.shift();
+    }
+    
+    charts.frequency.data.datasets[0].data.push({x: now, y: frequency});
+    charts.frequency.update('none');
+}
+
+function findRegisterValue(device, description) {
+    for (const register of Object.values(device)) {
+        if (register.description.includes(description)) {
+            return typeof register.value === 'number' ? register.value : parseFloat(register.value) || 0;
+        }
+    }
+    return null;
+}
+
+function toggleAutoRefresh() {
+    isAutoRefresh = !isAutoRefresh;
+    const refreshIcon = document.getElementById('refresh-icon');
+    const refreshText = document.getElementById('refresh-text');
+    
+    if (isAutoRefresh) {
+        refreshIcon.className = 'fas fa-pause';
+        refreshText.textContent = 'Pausar';
+        connectWebSocket();
+    } else {
+        refreshIcon.className = 'fas fa-play';
+        refreshText.textContent = 'Reanudar';
+        if (websocket) {
+            websocket.close();
+        }
+    }
+}
+
+function refreshData() {
+    fetch('/api/data')
+        .then(response => response.json())
+        .then(data => {
+            if (data.data) {
+                updateData(data.data, data.timestamp);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+        });
+}
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    connectWebSocket();
+    
+    // Initial data fetch
+    refreshData();
+});
+</script>
+{% endblock %}

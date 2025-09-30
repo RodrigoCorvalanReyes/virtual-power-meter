@@ -1,0 +1,662 @@
+{% extends "base.html" %}
+
+{% block title %}Registros - Virtual Power Meter{% endblock %}
+
+{% block extra_head %}
+<style>
+.register-editor {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.generator-type-badge {
+    font-size: 0.75em;
+}
+
+.address-badge {
+    font-family: 'Courier New', monospace;
+}
+
+.json-editor {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-database text-primary"></i>
+            Gestión de Registros
+        </h1>
+    </div>
+</div>
+
+<!-- File Selection -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-file-alt"></i>
+                    Archivos de Configuración
+                </h5>
+                
+                <div class="row">
+                    {% for filename, config in register_files.items() %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 {% if config is mapping and config.get('error') %}border-danger{% else %}border-light{% endif %}">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-file-code me-1"></i>
+                                    {{ filename }}
+                                </h6>
+                                
+                                {% if config is mapping and config.get('error') %}
+                                    <p class="text-danger small">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        Error: {{ config.error }}
+                                    </p>
+                                {% else %}
+                                    <p class="card-text small text-muted">
+                                        {{ config|length }} registros configurados
+                                    </p>
+                                    
+                                    <div class="mb-2">
+                                        {% set generators = [] %}
+                                        {% for register in config %}
+                                            {% if register.generation.type not in generators %}
+                                                {% set _ = generators.append(register.generation.type) %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% for gen_type in generators %}
+                                            <span class="badge bg-secondary generator-type-badge me-1">{{ gen_type }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="loadRegisterFile('{{ filename }}')">
+                                        <i class="fas fa-eye me-1"></i>Ver
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" onclick="editRegisterFile('{{ filename }}')">
+                                        <i class="fas fa-edit me-1"></i>Editar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Editor -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-edit"></i>
+                        Editor de Registros
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <button id="view-mode-btn" class="btn btn-outline-secondary btn-sm active" onclick="switchViewMode('table')">
+                            <i class="fas fa-table"></i> Tabla
+                        </button>
+                        <button id="json-mode-btn" class="btn btn-outline-secondary btn-sm" onclick="switchViewMode('json')">
+                            <i class="fas fa-code"></i> JSON
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="no-file-message" class="text-center py-5">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Selecciona un archivo de configuración para editar</p>
+                </div>
+                
+                <!-- Table View -->
+                <div id="table-view" class="d-none">
+                    <div class="register-editor">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Descripción</th>
+                                        <th>Dirección</th>
+                                        <th>Tipo</th>
+                                        <th>Generador</th>
+                                        <th>Parámetros</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="registers-table">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-success me-2" onclick="addNewRegister()">
+                            <i class="fas fa-plus me-1"></i>Agregar Registro
+                        </button>
+                        <button class="btn btn-primary me-2" onclick="saveRegisters()">
+                            <i class="fas fa-save me-1"></i>Guardar Cambios
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="reloadCurrentFile()">
+                            <i class="fas fa-undo me-1"></i>Descartar Cambios
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- JSON View -->
+                <div id="json-view" class="d-none">
+                    <textarea id="json-editor" class="form-control json-editor" rows="20" placeholder="JSON de configuración de registros..."></textarea>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary me-2" onclick="saveJsonRegisters()">
+                            <i class="fas fa-save me-1"></i>Guardar JSON
+                        </button>
+                        <button class="btn btn-outline-info me-2" onclick="validateJson()">
+                            <i class="fas fa-check me-1"></i>Validar JSON
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="reloadCurrentFile()">
+                            <i class="fas fa-undo me-1"></i>Descartar Cambios
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Current File Info -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-info-circle text-info"></i>
+                    Archivo Actual
+                </h6>
+                <div id="file-info">
+                    <p class="text-muted">Ningún archivo seleccionado</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Generator Types Help -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-success">
+                    <i class="fas fa-question-circle"></i>
+                    Tipos de Generadores
+                </h6>
+                
+                <div class="accordion accordion-flush" id="generatorHelp">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="uniformHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#uniformHelpCollapse">
+                                <code>uniform</code>
+                            </button>
+                        </h2>
+                        <div id="uniformHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Distribución uniforme</strong><br>
+                                <small>Parámetros: [min, max]</small><br>
+                                <small>Ejemplo: [10.0, 30.0]</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="sineHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sineHelpCollapse">
+                                <code>sine</code>
+                            </button>
+                        </h2>
+                        <div id="sineHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Onda senoidal</strong><br>
+                                <small>Parámetros: [amplitud, frecuencia, fase, offset]</small><br>
+                                <small>Ejemplo: [20.0, 0.1, 0.0, 25.0]</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="noiseHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#noiseHelpCollapse">
+                                <code>noise</code>
+                            </button>
+                        </h2>
+                        <div id="noiseHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Valor base + ruido</strong><br>
+                                <small>Parámetros: [valor_base, amplitud_ruido]</small><br>
+                                <small>Ejemplo: [100.0, 5.0]</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="fixedHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fixedHelpCollapse">
+                                <code>fixed</code>
+                            </button>
+                        </h2>
+                        <div id="fixedHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Valor constante</strong><br>
+                                <small>Parámetros: [valor]</small><br>
+                                <small>Ejemplo: [42.0]</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="timestampHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#timestampHelpCollapse">
+                                <code>timestamp</code>
+                            </button>
+                        </h2>
+                        <div id="timestampHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Timestamp actual</strong><br>
+                                <small>Parámetros: []</small><br>
+                                <small>Genera tiempo actual</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="randintHelp">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#randintHelpCollapse">
+                                <code>randint</code>
+                            </button>
+                        </h2>
+                        <div id="randintHelpCollapse" class="accordion-collapse collapse" data-bs-parent="#generatorHelp">
+                            <div class="accordion-body">
+                                <strong>Enteros aleatorios</strong><br>
+                                <small>Parámetros: [min, max]</small><br>
+                                <small>Ejemplo: [1, 100]</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Register Modal -->
+<div class="modal fade" id="editRegisterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit"></i>
+                    Editar Registro
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="register-form">
+                    <input type="hidden" id="register-index">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="register-description" class="form-label">Descripción</label>
+                            <input type="text" class="form-control" id="register-description" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="register-address" class="form-label">Dirección</label>
+                            <input type="number" class="form-control" id="register-address" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="register-data-type" class="form-label">Tipo de Datos</label>
+                            <select class="form-select" id="register-data-type">
+                                <option value="FLOAT32">FLOAT32</option>
+                                <option value="INT16">INT16</option>
+                                <option value="INT16U">INT16U</option>
+                                <option value="INT64">INT64</option>
+                                <option value="DATETIME">DATETIME</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="register-unit" class="form-label">Unidad</label>
+                            <input type="text" class="form-control" id="register-unit" placeholder="A, V, W, Hz, etc.">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="register-generator" class="form-label">Tipo de Generador</label>
+                            <select class="form-select" id="register-generator" onchange="updateGeneratorParams()">
+                                <option value="uniform">uniform</option>
+                                <option value="sine">sine</option>
+                                <option value="noise">noise</option>
+                                <option value="fixed">fixed</option>
+                                <option value="timestamp">timestamp</option>
+                                <option value="randint">randint</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="register-category" class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="register-category" placeholder="current, voltage, power, etc.">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="register-params" class="form-label">Parámetros del Generador</label>
+                        <input type="text" class="form-control" id="register-params" placeholder="[10.0, 30.0]">
+                        <div class="form-text" id="generator-help">Ingresa los parámetros como array JSON</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveRegisterEdit()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentRegisters = [];
+let currentFileName = '';
+let viewMode = 'table';
+
+function loadRegisterFile(filename) {
+    currentFileName = filename;
+    
+    fetch(`/api/registers/${filename}`)
+        .then(response => response.json())
+        .then(data => {
+            currentRegisters = data.registers;
+            updateFileInfo(filename, currentRegisters.length);
+            displayRegisters();
+            
+            document.getElementById('no-file-message').classList.add('d-none');
+            document.getElementById('table-view').classList.remove('d-none');
+        })
+        .catch(error => {
+            console.error('Error loading registers:', error);
+            alert('Error al cargar el archivo de registros');
+        });
+}
+
+function editRegisterFile(filename) {
+    loadRegisterFile(filename);
+}
+
+function updateFileInfo(filename, count) {
+    const fileInfo = document.getElementById('file-info');
+    fileInfo.innerHTML = `
+        <p><strong>${filename}</strong></p>
+        <p class="text-muted mb-0">
+            <i class="fas fa-list-ol me-1"></i>${count} registros
+        </p>
+    `;
+}
+
+function displayRegisters() {
+    if (viewMode === 'table') {
+        displayTableView();
+    } else {
+        displayJsonView();
+    }
+}
+
+function displayTableView() {
+    const tbody = document.getElementById('registers-table');
+    tbody.innerHTML = '';
+    
+    currentRegisters.forEach((register, index) => {
+        const row = document.createElement('tr');
+        row.className = 'table-row-registers';
+        row.innerHTML = `
+            <td>
+                <div class="text-truncate" style="max-width: 200px;" title="${register.description}">
+                    <strong>${register.description}</strong>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-info address-badge">${register.address}</span>
+            </td>
+            <td>
+                <span class="badge bg-secondary">${register.data_type}</span>
+            </td>
+            <td>
+                <span class="badge bg-primary generator-type-badge">${register.generation.type}</span>
+            </td>
+            <td>
+                <code class="small params-code">${JSON.stringify(register.generation.params)}</code>
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-primary" onclick="editRegister(${index})" title="Editar registro">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteRegister(${index})" title="Eliminar registro">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function displayJsonView() {
+    const jsonEditor = document.getElementById('json-editor');
+    jsonEditor.value = JSON.stringify(currentRegisters, null, 2);
+}
+
+function switchViewMode(mode) {
+    viewMode = mode;
+    
+    const tableModeBtn = document.getElementById('view-mode-btn');
+    const jsonModeBtn = document.getElementById('json-mode-btn');
+    const tableView = document.getElementById('table-view');
+    const jsonView = document.getElementById('json-view');
+    
+    if (mode === 'table') {
+        tableModeBtn.classList.add('active');
+        jsonModeBtn.classList.remove('active');
+        tableView.classList.remove('d-none');
+        jsonView.classList.add('d-none');
+        displayTableView();
+    } else {
+        tableModeBtn.classList.remove('active');
+        jsonModeBtn.classList.add('active');
+        tableView.classList.add('d-none');
+        jsonView.classList.remove('d-none');
+        displayJsonView();
+    }
+}
+
+function editRegister(index) {
+    const register = currentRegisters[index];
+    
+    document.getElementById('register-index').value = index;
+    document.getElementById('register-description').value = register.description;
+    document.getElementById('register-address').value = register.address;
+    document.getElementById('register-data-type').value = register.data_type;
+    document.getElementById('register-unit').value = register.unit || '';
+    document.getElementById('register-generator').value = register.generation.type;
+    document.getElementById('register-category').value = register.category || '';
+    document.getElementById('register-params').value = JSON.stringify(register.generation.params);
+    
+    updateGeneratorParams();
+    
+    const modal = new bootstrap.Modal(document.getElementById('editRegisterModal'));
+    modal.show();
+}
+
+function addNewRegister() {
+    document.getElementById('register-index').value = -1;
+    document.getElementById('register-description').value = '';
+    document.getElementById('register-address').value = '';
+    document.getElementById('register-data-type').value = 'FLOAT32';
+    document.getElementById('register-unit').value = '';
+    document.getElementById('register-generator').value = 'uniform';
+    document.getElementById('register-category').value = '';
+    document.getElementById('register-params').value = '[0.0, 100.0]';
+    
+    updateGeneratorParams();
+    
+    const modal = new bootstrap.Modal(document.getElementById('editRegisterModal'));
+    modal.show();
+}
+
+function updateGeneratorParams() {
+    const generatorType = document.getElementById('register-generator').value;
+    const helpText = document.getElementById('generator-help');
+    const paramsInput = document.getElementById('register-params');
+    
+    const examples = {
+        'uniform': '[min, max] - Ej: [10.0, 30.0]',
+        'sine': '[amplitud, frecuencia, fase, offset] - Ej: [20.0, 0.1, 0.0, 25.0]',
+        'noise': '[valor_base, amplitud_ruido] - Ej: [100.0, 5.0]',
+        'fixed': '[valor] - Ej: [42.0]',
+        'timestamp': '[] - Sin parámetros',
+        'randint': '[min, max] - Ej: [1, 100]'
+    };
+    
+    const defaultParams = {
+        'uniform': '[0.0, 100.0]',
+        'sine': '[20.0, 0.1, 0.0, 25.0]',
+        'noise': '[100.0, 5.0]',
+        'fixed': '[42.0]',
+        'timestamp': '[]',
+        'randint': '[1, 100]'
+    };
+    
+    helpText.textContent = examples[generatorType] || 'Parámetros del generador';
+    
+    if (paramsInput.value === '' || paramsInput.value === '[]') {
+        paramsInput.value = defaultParams[generatorType] || '[]';
+    }
+}
+
+function saveRegisterEdit() {
+    const index = parseInt(document.getElementById('register-index').value);
+    const paramsText = document.getElementById('register-params').value;
+    
+    let params;
+    try {
+        params = JSON.parse(paramsText);
+    } catch (e) {
+        alert('Los parámetros deben ser un array JSON válido');
+        return;
+    }
+    
+    const register = {
+        description: document.getElementById('register-description').value,
+        address: parseInt(document.getElementById('register-address').value),
+        data_type: document.getElementById('register-data-type').value,
+        generation: {
+            type: document.getElementById('register-generator').value,
+            params: params
+        }
+    };
+    
+    const unit = document.getElementById('register-unit').value;
+    const category = document.getElementById('register-category').value;
+    
+    if (unit) register.unit = unit;
+    if (category) register.category = category;
+    
+    if (index === -1) {
+        // Add new register
+        currentRegisters.push(register);
+    } else {
+        // Edit existing register
+        currentRegisters[index] = register;
+    }
+    
+    displayRegisters();
+    updateFileInfo(currentFileName, currentRegisters.length);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editRegisterModal'));
+    modal.hide();
+}
+
+function deleteRegister(index) {
+    if (confirm('¿Estás seguro de que quieres eliminar este registro?')) {
+        currentRegisters.splice(index, 1);
+        displayRegisters();
+        updateFileInfo(currentFileName, currentRegisters.length);
+    }
+}
+
+function saveRegisters() {
+    if (!currentFileName) {
+        alert('No hay archivo seleccionado');
+        return;
+    }
+    
+    fetch(`/api/registers/${currentFileName}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentRegisters)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Registros guardados correctamente');
+        } else {
+            alert('Error al guardar: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar los registros');
+    });
+}
+
+function saveJsonRegisters() {
+    const jsonText = document.getElementById('json-editor').value;
+    
+    try {
+        const registers = JSON.parse(jsonText);
+        currentRegisters = registers;
+        saveRegisters();
+        updateFileInfo(currentFileName, currentRegisters.length);
+    } catch (e) {
+        alert('JSON inválido: ' + e.message);
+    }
+}
+
+function validateJson() {
+    const jsonText = document.getElementById('json-editor').value;
+    
+    try {
+        JSON.parse(jsonText);
+        alert('JSON válido ✓');
+    } catch (e) {
+        alert('JSON inválido: ' + e.message);
+    }
+}
+
+function reloadCurrentFile() {
+    if (currentFileName) {
+        loadRegisterFile(currentFileName);
+    }
+}
+</script>
+{% endblock %}

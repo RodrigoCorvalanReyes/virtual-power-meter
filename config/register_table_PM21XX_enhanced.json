@@ -1,0 +1,210 @@
+[
+    {
+        "description": "Current Phase A", 
+        "address": 3000, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [20.0, 0.1, 0.0, 25.0]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Current Phase B", 
+        "address": 3002, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [20.0, 0.1, 2.094, 25.0]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Current Phase C", 
+        "address": 3004, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [20.0, 0.1, 4.189, 25.0]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Current Neutral", 
+        "address": 3006, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [2.5, 1.0]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Current Ground", 
+        "address": 3008, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "uniform", "params": [0.0, 0.5]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Current Average", 
+        "address": 3010, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [18.0, 0.1, 0.0, 25.0]},
+        "unit": "A",
+        "category": "current"
+    },
+    {
+        "description": "Voltage Line A-B", 
+        "address": 3020, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [230.0, 5.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Voltage Line B-C", 
+        "address": 3022, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [230.0, 5.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Voltage Line C-A", 
+        "address": 3024, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [230.0, 5.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Voltage Phase A-N", 
+        "address": 3028, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [133.0, 3.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Voltage Phase B-N", 
+        "address": 3030, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [133.0, 3.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Voltage Phase C-N", 
+        "address": 3032, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [133.0, 3.0]},
+        "unit": "V",
+        "category": "voltage"
+    },
+    {
+        "description": "Active Power Phase A", 
+        "address": 3054, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [1000.0, 0.05, 0.0, 2500.0]},
+        "unit": "W",
+        "category": "power"
+    },
+    {
+        "description": "Active Power Phase B", 
+        "address": 3056, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [1000.0, 0.05, 2.094, 2500.0]},
+        "unit": "W",
+        "category": "power"
+    },
+    {
+        "description": "Active Power Phase C", 
+        "address": 3058, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [1000.0, 0.05, 4.189, 2500.0]},
+        "unit": "W",
+        "category": "power"
+    },
+    {
+        "description": "Active Power Total", 
+        "address": 3060, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [2800.0, 0.05, 0.0, 7500.0]},
+        "unit": "W",
+        "category": "power"
+    },
+    {
+        "description": "Power Factor Phase A", 
+        "address": 3078, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [0.85, 0.1]},
+        "unit": "",
+        "category": "power_quality"
+    },
+    {
+        "description": "Power Factor Phase B", 
+        "address": 3080, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [0.85, 0.1]},
+        "unit": "",
+        "category": "power_quality"
+    },
+    {
+        "description": "Power Factor Phase C", 
+        "address": 3082, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [0.85, 0.1]},
+        "unit": "",
+        "category": "power_quality"
+    },
+    {
+        "description": "Frequency", 
+        "address": 3110, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "noise", "params": [50.0, 0.2]},
+        "unit": "Hz",
+        "category": "power_quality"
+    },
+    {
+        "description": "Energy Active Import", 
+        "address": 3204, 
+        "data_type": "INT64", 
+        "generation": {"type": "randint", "params": [1000000, 9999999]},
+        "unit": "Wh",
+        "category": "energy"
+    },
+    {
+        "description": "Energy Active Export", 
+        "address": 3208, 
+        "data_type": "INT64", 
+        "generation": {"type": "randint", "params": [0, 100000]},
+        "unit": "Wh",
+        "category": "energy"
+    },
+    {
+        "description": "Device Temperature", 
+        "address": 3400, 
+        "data_type": "FLOAT32", 
+        "generation": {"type": "sine", "params": [10.0, 0.01, 0.0, 35.0]},
+        "unit": "°C",
+        "category": "status"
+    },
+    {
+        "description": "Last Update Timestamp", 
+        "address": 3500, 
+        "data_type": "DATETIME", 
+        "generation": {"type": "timestamp", "params": []},
+        "unit": "",
+        "category": "status"
+    },
+    {
+        "description": "Device ID", 
+        "address": 3600, 
+        "data_type": "INT16U", 
+        "generation": {"type": "fixed", "params": [21001]},
+        "unit": "",
+        "category": "identification"
+    },
+    {
+        "description": "Firmware Version", 
+        "address": 3601, 
+        "data_type": "INT16U", 
+        "generation": {"type": "fixed", "params": [300]},
+        "unit": "",
+        "category": "identification"
+    }
+]
